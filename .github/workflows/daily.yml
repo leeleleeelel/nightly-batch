@@ -34,6 +34,13 @@ jobs:
             data/meta
           key: data-${{ github.run_id }}
           restore-keys: data-
+      - name: seed (first run only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p data/ftd data/sec
+          if ! ls data/ftd/*.zip >/dev/null 2>&1; then gh release download seed-ftd --repo "${{ github.repository }}" -p seed_ftd.zip -D /tmp && unzip -q -o /tmp/seed_ftd.zip -d data/ftd && cp seed/ftd_fetch_log.csv data/ftd/ftd_fetch_log.csv; fi
+          [ -f data/sec/cik_map.csv ] || cp seed/cik_map.csv data/sec/cik_map.csv
       - name: run
         env:
           RALLY_BASE: ${{ github.workspace }}

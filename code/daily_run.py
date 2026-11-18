@@ -30,14 +30,15 @@ try:
     run("universe", [C2 + "/universe.py", D])
     run("yahoo daily bars (full refresh)", [C2 + "/yhd_fetch2.py", D + "/meta/universe.csv", D + "/raw_yh", "refresh"])
     run("finra", [C2 + "/finra_fetch2.py", D + "/meta/universe.csv", D + "/finra"])
-    run("ftd", [C2 + "/fetch_ftd2.py", D + "/ftd", D + "/ftd/ftd_fetch_log.csv"])
     run("threshold lists", [C2 + "/fetch_th2.py", "nasdaq", "none", D + "/th/nasdaq_rows.csv", D + "/th/nasdaq_status.csv"])
-    if weekly:   # new tickers / companies and the latest XBRL quarters once a week
-        if os.path.exists(D + "/sec/cik_map.csv"): os.replace(D + "/sec/cik_map.csv", D + "/sec/cik_map_prev.csv")
+    if not os.path.exists(D + "/sec/cik_map.csv") and os.path.exists(RB + "/seed/cik_map.csv"): shutil.copy(RB + "/seed/cik_map.csv", D + "/sec/cik_map.csv")
+    if not os.path.exists(D + "/ftd/ftd_fetch_log.csv") and os.path.exists(RB + "/seed/ftd_fetch_log.csv"): shutil.copy(RB + "/seed/ftd_fetch_log.csv", D + "/ftd/ftd_fetch_log.csv")
+    if weekly:   # the latest XBRL quarters once a week (data.sec.gov); the ticker->CIK map is kept (www.sec.gov is not reachable from GitHub runners)
         q = pd.Timestamp.today(); recent_q = {f"CY{(q - pd.DateOffset(months=3 * k)).year}Q{(q - pd.DateOffset(months=3 * k)).quarter}" for k in (1, 2)}
         for f in os.listdir(D + "/sec/xbrl_raw"):
             if any(rq in f for rq in recent_q): os.remove(D + "/sec/xbrl_raw/" + f)
-        run("sec (weekly)", [C2 + "/sec_fetch2.py", D + "/meta/universe.csv", D + "/sec"])
+    run("ftd", [C2 + "/fetch_ftd2.py", D + "/ftd", D + "/ftd/ftd_fetch_log.csv"])
+    run("sec submissions + xbrl (missing only)", [C2 + "/sec_fetch2.py", D + "/meta/universe.csv", D + "/sec"])
     run("panel", [C2 + "/build_panel2.py", D + "/raw_yh", D + "/meta/universe.csv", CORE])
     run("events", [C2 + "/events2.py", CORE + "/px", CORE + "/events_x19.pkl"])
     run("capture", [C2 + "/capture2.py", CORE])
