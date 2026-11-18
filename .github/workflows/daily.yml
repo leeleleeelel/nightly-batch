@@ -1,0 +1,69 @@
+name: daily
+on:
+  schedule:
+    - cron: "0 12 * * 1-5"   # 21:00 KST (UTC+9), Monday-Friday
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: daily
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r requirements.txt
+      - name: restore data
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/raw_yh
+            data/sec
+            data/finra
+            data/ftd
+            data/th
+            data/meta
+          key: data-${{ github.run_id }}
+          restore-keys: data-
+      - name: run
+        env:
+          RALLY_BASE: ${{ github.workspace }}
+          RALLY_DATA: ${{ github.workspace }}/data
+          RALLY_OUT: ${{ github.workspace }}/site/${{ secrets.PAGE_PATH }}
+          RALLY_LOGS: ${{ github.workspace }}/logs
+          RALLY_NO_BROWSER: "1"
+        run: python -X utf8 code/daily_run.py
+      - name: save data
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/raw_yh
+            data/sec
+            data/finra
+            data/ftd
+            data/th
+            data/meta
+          key: data-${{ github.run_id }}
+      - name: site root
+        if: always()
+        run: |
+          mkdir -p site
+          printf '<!doctype html><meta charset="utf-8"><title>.</title>' > site/index.html
+          rm -f site/*/scores_latest.pkl
+      - uses: actions/upload-pages-artifact@v3
+        if: always()
+        with:
+          path: site
+          retention-days: 1
+      - uses: actions/deploy-pages@v4
+        if: always()

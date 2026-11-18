@@ -1,0 +1,6 @@
+data/
+site/
+logs/
+daily/
+*.log
+__pycache__/

@@ -1,0 +1,10 @@
+{
+ "written": "2026-11-18 KST after the user asked for an expected probability and a target price next to every daily pick, built with the blind 'unlimited combination' method if no logic exists. Written before the rebuilt data or any outcome was looked at",
+ "success_rule": "unchanged for judging strategies: two consecutive closes >= +10% within 20 sessions after the t0+1 open (y10, >= 70% in both holdout periods)",
+ "reach_outcomes": "for target prices: reach_L = the intraday high touches entry x (1+L) within 20 sessions after the t0+1 open entry, L in {10, 15, 20, 30, 50}%. A resting limit sell at that level would have filled",
+ "logic_A_base_probabilities": "for a pick of the live attempt-25 rule (trailing-365-day top-10% score threshold), the expected probabilities P(y10) and P(reach_L) = the rates among earlier picks of the same rule whose 20-session outcome is complete, reported with the count and a 90% interval. Updated every day as outcomes complete (rolling, all available history)",
+ "target_price": "target 1 = entry x (1 + highest L with P(reach_L) >= 70%), target 2 = entry x (1 + highest L with P(reach_L) >= 50%); entry is unknown before the open, so prices are shown against the last close as an estimate and as percentages",
+ "attempt_42_blind_modifiers": "blind random-formula search as attempt 38 (same grammar, seed 20261111, point-in-time prices, within-week null, excess over the same-week expectation), on ALL 2019-2023 surges with target reach_20 (the +20% touch). Pass = reach_20 rate >= 60% and >= 15 points above the same-week expectation in 2019-21 (n >= 40) and in 2022-23 (n >= 20). Gate: real passes > 95th percentile of the within-week null. If open: dedupe, keep the rules, one look at 2024-25 and 2026 (logged as attempt 42). Kept rules are shown as 'matched combinations' next to a pick with their historical reach_20 rates; they do not change the pick list",
+ "crash_test": "every script first on outcomes permuted within year/week",
+ "not_advice": "research output only; the daily page lists rule signals with historical statistics, not recommendations to buy or sell"
+}
