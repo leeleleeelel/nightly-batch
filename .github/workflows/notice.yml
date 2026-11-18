@@ -1,0 +1,42 @@
+name: notice
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: daily
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+    steps:
+      - name: notice page
+        env:
+          PAGE_PATH: ${{ secrets.PAGE_PATH }}
+        run: |
+          test -n "$PAGE_PATH"
+          mkdir -p "site/$PAGE_PATH"
+          printf '<!doctype html><meta charset="utf-8"><title>.</title>' > site/index.html
+          cat > "site/$PAGE_PATH/index.html" <<'EOF'
+          <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>준비 중</title>
+          <style>body{font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif;background:#f7f7f5;color:#1d1d1b;margin:0;padding:24px 16px;line-height:1.6}main{max-width:640px;margin:0 auto}.card{background:#fff;border:1px solid #e3e3df;border-radius:10px;padding:16px 18px}.dim{color:#6b6b66;font-size:.92em}@media (prefers-color-scheme:dark){body{background:#151514;color:#ecece8}.card{background:#1f1f1d;border-color:#33332f}.dim{color:#a5a59f}}</style></head>
+          <body><main><h1>새 판별 로직 준비 중</h1><div class="card">
+          <p>이전 페이지는 '오늘 이미 급등한 종목 중에서 고르는' 구조여서 내렸습니다.</p>
+          <p><b>새 구조</b></p><ul>
+          <li>황금알: 하루 +10% 이상이 이틀 연속 이어진 종목</li>
+          <li>판별: 과거 황금알들의 급등 첫날 전날까지(최대 20거래일 전부터)의 공통점으로, 매일 전체 종목 중 아직 오르기 전인 종목을 가려냄</li>
+          <li>맞힘: 고른 뒤 20거래일 안에 황금알 급등이 시작</li></ul>
+          <p>검증이 끝나면 이 주소에 다시 올립니다.</p></div>
+          <p class="dim">투자자문이 아니며, 매수·매도 권유가 아닙니다.</p></main></body></html>
+          EOF
+          cp "site/$PAGE_PATH/index.html" "site/$PAGE_PATH/급등신호_최신.html"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+          retention-days: 1
+      - uses: actions/deploy-pages@v4

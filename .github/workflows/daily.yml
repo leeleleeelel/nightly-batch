@@ -3,7 +3,6 @@ on:
   schedule:
     - cron: "23 11 * * 1-5"   # 20:23 KST, Monday-Friday: the page is ready by about 21:00 (off the top of the hour, where GitHub delays or drops triggers)
     - cron: "41 12 * * 1-5"   # 21:41 KST backup in case the first trigger is dropped; does nothing when a page was built in the last 6 hours
-    - cron: "53 14 18 11 *"   # one-off check that scheduled triggers fire (2026-11-18 23:53 KST); remove after it runs
   workflow_dispatch: {}
 permissions:
   contents: read
