@@ -12,43 +12,29 @@ jobs:
         with:
           python-version: "3.14"
       - run: pip install requests
-      - name: data sources reachable from GitHub servers
-        run: |
-          python - <<'PY'
-          import requests, time
-          t = int(time.time())
-          tests = [
-            ("yahoo", "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?period1=1704067200&period2=%d&interval=1d" % t, {"User-Agent": "Mozilla/5.0 (rally-research-script)"}),
-            ("yahoo2", "https://query2.finance.yahoo.com/v8/finance/chart/INTC?period1=1704067200&period2=%d&interval=1d" % t, {"User-Agent": "Mozilla/5.0 (rally-research-script)"}),
-            ("sec", "https://data.sec.gov/submissions/CIK0000320193.json", {"User-Agent": "rally-research-script/1.0 (personal research)", "Accept-Encoding": "gzip, deflate"}),
-            ("sec_www", "https://www.sec.gov/files/company_tickers.json", {"User-Agent": "rally-research-script/1.0 (personal research)", "Accept-Encoding": "gzip, deflate"}),
-            ("finra", "https://cdn.finra.org/equity/regsho/daily/CNMSshvol20261117.txt", {"User-Agent": "rally-research-script/1.0 (personal research)"}),
-            ("nasdaq", "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt", {"User-Agent": "rally-research-script/1.0 (personal research)"}),
-          ]
-          for name, url, h in tests:
-              try:
-                  r = requests.get(url, headers=h, timeout=40); print(name, r.status_code, len(r.content))
-              except Exception as e:
-                  print(name, "ERR", repr(e)[:120])
-          PY
-      - name: SEC hosts with a declared contact
+      - name: SEC order test
         env:
           SEC_CONTACT: ${{ secrets.SEC_CONTACT }}
         run: |
           python - <<'PY'
-          import os, time, requests
+          import os, re, time, requests
           c = os.environ.get("SEC_CONTACT", "")
-          print("contact set:", bool(c))
-          uas = {"paren": "rally-research-script/1.0 (personal research; contact %s)" % c, "plain": "nightly-batch research %s" % c}
-          urls = ["https://www.sec.gov/files/company_tickers.json", "https://www.sec.gov/data-research/sec-markets-data/fails-deliver-data",
-                  "https://www.sec.gov/files/data/fails-deliver-data/cnsfails202609a.zip", "https://efts.sec.gov/LATEST/search-index?keysTyped=AAPL",
-                  "https://data.sec.gov/submissions/CIK0000320193.json"]
-          for name, ua in uas.items():
-              for u in urls:
-                  try:
-                      r = requests.get(u, headers={"User-Agent": ua, "Accept-Encoding": "gzip, deflate"}, timeout=40)
-                      print(name, u.split("/")[2], u.split("/")[-1][:40], r.status_code, len(r.content))
-                  except Exception as e:
-                      print(name, u.split("/")[2], "ERR", repr(e)[:100])
-                  time.sleep(0.6)
+          gen = "rally-research-script/1.0 (personal research)"
+          con = "rally-research-script/1.0 (personal research; contact %s)" % c
+          con2 = "nightly-batch %s" % c
+          steps = [("data", con, "https://data.sec.gov/submissions/CIK0000320193.json"),
+                   ("data", gen, "https://data.sec.gov/submissions/CIK0000320193.json"),
+                   ("data", con2, "https://data.sec.gov/submissions/CIK0000789019.json"),
+                   ("www", con, "https://www.sec.gov/files/company_tickers.json"),
+                   ("data", gen, "https://data.sec.gov/submissions/CIK0001045810.json"),
+                   ("data", con, "https://data.sec.gov/submissions/CIK0001018724.json")]
+          for i, (h, ua, u) in enumerate(steps):
+              try:
+                  r = requests.get(u, headers={"User-Agent": ua, "Accept-Encoding": "gzip, deflate"}, timeout=40)
+                  kind = "gen" if ua == gen else ("con" if ua == con else "con2")
+                  txt = "" if r.status_code == 200 else re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r.text))[:300]
+                  print(i, h, kind, r.status_code, len(r.content), txt)
+              except Exception as e:
+                  print(i, h, "ERR", repr(e)[:100])
+              time.sleep(2)
           PY
