@@ -64,6 +64,13 @@ def ex_row(lab, col):
 ex_rows = ex_row("A. 종가가 이틀 연속 +10%면 그 종가에 매도, 아니면 20일째 종가", "exA") + ex_row("B. +10%에 지정가 매도, 안 닿으면 20일째 종가", "exB") + ex_row("C. B + −20% 손절", "exC")
 by_year = "".join(f"<tr><td>{Y}</td><td>{int((H.t0.dt.year == Y).sum())}</td><td>{pp(H[H.t0.dt.year == Y].y10.mean())}</td><td>{pp(H[H.t0.dt.year == Y].r10.mean())}</td><td>{s1(H[H.t0.dt.year == Y].exB.mean())}</td></tr>" for Y in sorted(H.t0.dt.year.unique())) if len(H) else ""
 A42M = json.load(open(A42, encoding="utf-8")).get("matches", {}) if A42 else None
+A42R = ""
+if A42:
+    try:
+        h_ = json.load(open(os.path.join(os.path.dirname(os.path.abspath(A42)), "a42_result.json"), encoding="utf-8"))["r20"]["holdout"]; a_, b_ = h_["2024-25"], h_["2026"]
+        A42R = (f"시도 42 조합 전체의 검증 성적: +20% 도달 2024~25 {pp(a_['r20'])}({a_['n']}건, 같은 주 평균 {pp(a_['r20_week_expect'])}) · 2026 {pp(b_['r20'])}({b_['n']}건, 같은 주 평균 {pp(b_['r20_week_expect'])}). "
+                f"성공 기준(60%)에 못 미친 참고 정보입니다. 매도 방식 A의 평균은 {s1(a_['pay_mean'])} · {s1(b_['pay_mean'])}였습니다.")
+    except Exception: A42R = ""
 # ---- today ----
 last = R.t0.max(); today = R[R.t0 == last]; picks = today[today.pick]; others = today[today.cand & ~today.pick]
 tg = lambda L, c0: f"+{int(L * 100)}% <span class=dim>(약 ${c0 * (1 + L):,.2f})</span>" if L else "–"
@@ -72,7 +79,7 @@ def pick_card(q, r):
     why = "".join(f"<li>{esc(fname(f))}</li>" for f, cval, x in up[:5]); against = "".join(f"<li>{esc(fname(f))}</li>" for f, cval, x in dn[:3])
     mt = ""
     if A42M is not None:
-        hits = A42M.get(str(q), []); mt = "<p><b>해당하는 +20% 조합(시도 42):</b></p>" + ("<ul>" + "".join(f"<li>{esc(h)}</li>" for h in hits[:5]) + "</ul>" if hits else "<p class=dim>없음</p>")
+        hits = A42M.get(str(q), []); mt = "<p><b>해당하는 +20% 조합(시도 42):</b></p>" + ("<ul>" + "".join(f"<li>{esc(h)}</li>" for h in hits[:5]) + "</ul>" if hits else "<p class=dim>없음</p>") + (f"<p class=dim>{A42R}</p>" if A42R else "")
     return f"""<div class=card><h3>{esc(r.symbol)} <span class=dim>급등일 {r.t0:%m-%d} · 직전 종가 ${c0:,.2f}</span></h3>
 <p><b>예상 확률:</b> 종가 기준 성공 {pp(PR['y10']['p'])} · 장중 +10% {pp(PR['r10']['p'])} · +20% {pp(PR['r20']['p'])} · +30% {pp(PR['r30']['p'])}</p>
 <p><b>목표가:</b> 1차 {tg(t1, c0)} · 2차 {tg(t2, c0)} <span class=dim>(직전 종가 기준 예상; 실제 기준은 다음 날 시가)</span></p>
@@ -111,7 +118,7 @@ HT = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="
 <li><b>1단계:</b> 황금알 흔적 규칙 178개 중 하나라도 해당.</li>
 <li><b>2단계:</b> 2019~2023년으로 학습해 고정한 점수 모델이, 지난 1년 후보 점수의 상위 10% 문턱을 넘으면 선택.</li>
 <li><b>진입·판정:</b> 다음 날 시가 진입. 성공 = 20거래일 안에 종가가 이틀 연속 +10%.</li>
-<li><b>확률·목표가:</b> 위 2장의 실제 비율. 시도 42 조합이 통과했다면 종목별로 해당 조합을 함께 표시.</li>
+<li><b>확률·목표가:</b> 위 2장의 실제 비율. 시도 42(장중 +20% 도달 조합 85개)는 검증에서 58%·55%로 성공 기준 60%에 못 미쳐, 고른 종목 옆에 참고로만 표시하며 고르는 데는 쓰지 않음.</li>
 </ol></div>
 </main></body></html>"""
 os.makedirs(OUTD, exist_ok=True); fn = os.path.join(OUTD, f"급등신호_{last:%Y%m%d}.html")
