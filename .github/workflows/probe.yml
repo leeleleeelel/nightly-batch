@@ -31,3 +31,24 @@ jobs:
               except Exception as e:
                   print(name, "ERR", repr(e)[:120])
           PY
+      - name: SEC hosts with a declared contact
+        env:
+          SEC_CONTACT: ${{ secrets.SEC_CONTACT }}
+        run: |
+          python - <<'PY'
+          import os, time, requests
+          c = os.environ.get("SEC_CONTACT", "")
+          print("contact set:", bool(c))
+          uas = {"paren": "rally-research-script/1.0 (personal research; contact %s)" % c, "plain": "nightly-batch research %s" % c}
+          urls = ["https://www.sec.gov/files/company_tickers.json", "https://www.sec.gov/data-research/sec-markets-data/fails-deliver-data",
+                  "https://www.sec.gov/files/data/fails-deliver-data/cnsfails202609a.zip", "https://efts.sec.gov/LATEST/search-index?keysTyped=AAPL",
+                  "https://data.sec.gov/submissions/CIK0000320193.json"]
+          for name, ua in uas.items():
+              for u in urls:
+                  try:
+                      r = requests.get(u, headers={"User-Agent": ua, "Accept-Encoding": "gzip, deflate"}, timeout=40)
+                      print(name, u.split("/")[2], u.split("/")[-1][:40], r.status_code, len(r.content))
+                  except Exception as e:
+                      print(name, u.split("/")[2], "ERR", repr(e)[:100])
+                  time.sleep(0.6)
+          PY
