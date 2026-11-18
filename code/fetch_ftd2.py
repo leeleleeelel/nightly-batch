@@ -4,7 +4,10 @@
 import sys, os, re, csv, time, requests, pandas as pd
 OUT, LOG = sys.argv[1], sys.argv[2]
 s = requests.Session(); s.headers.update({"User-Agent": "rally-research-script/1.0 (personal research)", "Accept-Encoding": "gzip, deflate"})
-page = s.get("https://www.sec.gov/data-research/sec-markets-data/fails-deliver-data", timeout=60).text
+try: r0 = s.get("https://www.sec.gov/data-research/sec-markets-data/fails-deliver-data", timeout=60)
+except Exception as e: print("FTD page not reachable:", repr(e)[:120], "- files kept as they are"); sys.exit(0)
+if r0.status_code == 403: print("www.sec.gov refused this server (403) - FTD files kept as they are"); sys.exit(0)   # GitHub runners are refused
+page = r0.text if r0.status_code == 200 else ""
 links = {}
 for href, key in re.findall(r'href="([^"]*cnsfails(\d{6}[ab])(?:_\d)?\.zip)"', page): links.setdefault(key, []).append(href if href.startswith("http") else "https://www.sec.gov" + href)
 keys = [p.strftime("%Y%m") + h for p in pd.period_range("2018-06", pd.Timestamp.today().strftime("%Y-%m"), freq="M") for h in "ab"]

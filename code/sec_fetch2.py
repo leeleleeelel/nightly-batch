@@ -18,13 +18,15 @@ def get(u):
         except Exception: time.sleep(5)
     return None
 uni = pd.read_csv(UNI, keep_default_na=False); t0 = time.time()
-mp_path = os.path.join(OUT, "cik_map.csv")
-if not os.path.exists(mp_path):
+mp_path = os.path.join(OUT, "cik_map.csv"); COLS = ["symbol", "cik", "entity", "tickers", "status"]
+def tickers():
     r = get("https://www.sec.gov/files/company_tickers.json"); tick = {}
     if r is not None and r.status_code == 200:
         for v in json.loads(r.content).values(): tick.setdefault(str(v["ticker"]).upper(), (str(v["cik_str"]), v.get("title", "")))
+    return tick
+def lookup(pairs, tick):
     rows = []
-    for sym, y in zip(uni.symbol, uni.yahoo):
+    for sym, y in pairs:
         hit = tick.get(y.upper()) or tick.get(sym.upper())
         if hit: rows.append([sym, hit[0], hit[1], y, "ok"]); continue
         q = y; rr = get("https://efts.sec.gov/LATEST/search-index?keysTyped=" + requests.utils.quote(q)); cik, ent, tk, st = "", "", "", "nohit"
@@ -35,7 +37,16 @@ if not os.path.exists(mp_path):
                     if q.upper() in t_ or sym.upper() in t_: cik, ent, tk, st = h["_id"], h["_source"].get("entity", ""), h["_source"].get("tickers", ""), "ok"; break
             except Exception: st = "parse_err"
         rows.append([sym, cik, ent, tk, st])
-    pd.DataFrame(rows, columns=["symbol", "cik", "entity", "tickers", "status"]).to_csv(mp_path, index=False)
+    return rows
+if not os.path.exists(mp_path):
+    pd.DataFrame(lookup(zip(uni.symbol, uni.yahoo), tickers()), columns=COLS).to_csv(mp_path, index=False)
+else:   # symbols listed after the map was made: company_tickers.json when reachable (not from GitHub runners), else the EDGAR entity search
+    old = pd.read_csv(mp_path, dtype=str, keep_default_na=False); have = set(old.symbol)
+    todo = [(a, b) for a, b in zip(uni.symbol, uni.yahoo) if a not in have][:400]
+    if todo:
+        got = [r_ for r_ in lookup(todo, tickers()) if r_[4] == "ok"]   # misses are retried on the next run
+        if got: pd.concat([old, pd.DataFrame(got, columns=COLS)], ignore_index=True).to_csv(mp_path + ".part", index=False); os.replace(mp_path + ".part", mp_path)
+        print("new symbols", len(todo), "mapped", len(got), [g[0] for g in got][:20], flush=True)
 mp = pd.read_csv(mp_path, dtype=str, keep_default_na=False); ciks = sorted(set(int(c) for c in mp.cik if c))
 print("mapped", int((mp.status == "ok").sum()), "of", len(mp), "ciks", len(ciks), round(time.time() - t0), "s", flush=True)
 n = 0

@@ -61,12 +61,25 @@ try:
     if os.path.exists(RB + "/a42_matches.json"): args.append(RB + "/a42_matches.json")
     run("page", args)
     page = OUTD + "/급등신호_최신.html"
+    if os.path.exists(OUTD + "/업데이트_실패.html"): os.remove(OUTD + "/업데이트_실패.html")
 except Exception as e:
-    log(f"FAILED: {e}")
-    page = OUTD + "/급등신호_최신.html"
-    with open(OUTD + "/업데이트_실패.html", "w", encoding="utf-8") as fh:
-        fh.write(f"<!doctype html><meta charset=utf-8><title>업데이트 실패</title><body style='font-family:sans-serif;padding:2em'><h1>오늘 업데이트 실패</h1><p>{e}</p><p>기록: {LOGD}/run_{stamp}.log</p><p>마지막으로 만든 페이지: {page}</p></body>")
-    page = OUTD + "/업데이트_실패.html"
+    import html, re
+    log(f"FAILED: {e}"); LOG.flush(); os.makedirs(OUTD, exist_ok=True); now = datetime.datetime.now(); why = html.escape(str(e))[:300]
+    try: print("---- last log lines ----\n" + "".join(open(f"{LOGD}/run_{stamp}.log", encoding="utf-8", errors="replace").readlines()[-40:]), flush=True)
+    except Exception: pass
+    note = (f"<!--fail-banner--><div style='background:#fde2e1;color:#7a1712;padding:10px 14px;font-family:sans-serif;border-bottom:2px solid #c0392b'>"
+            f"⚠ {now:%Y-%m-%d %H:%M} 업데이트 실패: {why}<br>아래는 마지막으로 성공한 업데이트의 내용입니다.</div><!--/fail-banner-->")
+    kept = False
+    for nm in ("index.html", "급등신호_최신.html"):   # keep the last good page (restored by the workflow) and put a notice on top
+        f_ = os.path.join(OUTD, nm)
+        if os.path.exists(f_):
+            t_ = re.sub(r"<!--fail-banner-->.*?<!--/fail-banner-->", "", open(f_, encoding="utf-8").read(), flags=re.S); m_ = re.search(r"<body[^>]*>", t_)
+            open(f_, "w", encoding="utf-8").write(t_[:m_.end()] + note + t_[m_.end():] if m_ else note + t_); kept = True
+    fail = (f"<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=robots content=noindex><title>업데이트 실패</title>"
+            f"<body style='font-family:sans-serif;padding:1.5em'><h1>업데이트 실패</h1><p>{now:%Y-%m-%d %H:%M}</p><p>{why}</p></body>")
+    open(OUTD + "/업데이트_실패.html", "w", encoding="utf-8").write(fail)
+    if not kept: open(OUTD + "/index.html", "w", encoding="utf-8").write(fail)
+    page = OUTD + ("/급등신호_최신.html" if kept else "/업데이트_실패.html")
 if os.name == "nt" and not os.environ.get("RALLY_NO_BROWSER"):
     subprocess.Popen(["cmd", "/c", "start", "", "chrome", page.replace("/", "\\")], shell=False); log("opened " + page)
 else:

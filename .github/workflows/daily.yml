@@ -16,6 +16,8 @@ jobs:
     timeout-minutes: 340
     environment:
       name: github-pages
+    env:
+      TZ: Asia/Seoul
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,13 +36,21 @@ jobs:
             data/meta
           key: data-${{ github.run_id }}
           restore-keys: data-
+      - name: restore last pages
+        uses: actions/cache/restore@v4
+        with:
+          path: keep
+          key: pages-${{ github.run_id }}
+          restore-keys: pages-
       - name: seed (first run only)
         env:
           GH_TOKEN: ${{ github.token }}
+          PAGE_PATH: ${{ secrets.PAGE_PATH }}
         run: |
-          mkdir -p data/ftd data/sec
+          mkdir -p data/ftd data/sec "site/$PAGE_PATH"
           if ! ls data/ftd/*.zip >/dev/null 2>&1; then gh release download seed-ftd --repo "${{ github.repository }}" -p seed_ftd.zip -D /tmp && unzip -q -o /tmp/seed_ftd.zip -d data/ftd && cp seed/ftd_fetch_log.csv data/ftd/ftd_fetch_log.csv; fi
           [ -f data/sec/cik_map.csv ] || cp seed/cik_map.csv data/sec/cik_map.csv
+          if [ -n "$PAGE_PATH" ] && [ -d keep ]; then cp -a keep/. "site/$PAGE_PATH/"; fi
       - name: run
         env:
           RALLY_BASE: ${{ github.workspace }}
@@ -63,10 +73,21 @@ jobs:
           key: data-${{ github.run_id }}
       - name: site root
         if: always()
+        env:
+          PAGE_PATH: ${{ secrets.PAGE_PATH }}
         run: |
           mkdir -p site
           printf '<!doctype html><meta charset="utf-8"><title>.</title>' > site/index.html
           rm -f site/*/scores_latest.pkl
+          find site -mindepth 1 -maxdepth 1 -type d ! -name "$PAGE_PATH" -exec rm -rf {} +
+          rm -rf keep && mkdir -p keep
+          if [ -n "$PAGE_PATH" ] && [ -d "site/$PAGE_PATH" ]; then cp -a "site/$PAGE_PATH/." keep/; fi
+      - name: save last pages
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: keep
+          key: pages-${{ github.run_id }}
       - uses: actions/upload-pages-artifact@v3
         if: always()
         with:
@@ -74,3 +95,23 @@ jobs:
           retention-days: 1
       - uses: actions/deploy-pages@v4
         if: always()
+  keepalive:
+    # GitHub pauses scheduled workflows of a public repository after 60 days without repository activity.
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: commit a heartbeat when the last commit is 45+ days old
+        run: |
+          last=$(git log -1 --format=%ct); now=$(date +%s)
+          if [ $(( (now - last) / 86400 )) -ge 45 ]; then
+            date -u +%Y-%m-%dT%H:%MZ > .github/keepalive
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/keepalive && git commit -m "keepalive" && git push
+          else
+            echo "last commit $(( (now - last) / 86400 )) days ago - nothing to do"
+          fi
