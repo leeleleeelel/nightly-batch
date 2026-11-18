@@ -12,29 +12,20 @@ jobs:
         with:
           python-version: "3.14"
       - run: pip install requests
-      - name: SEC order test
-        env:
-          SEC_CONTACT: ${{ secrets.SEC_CONTACT }}
+      - name: EDGAR entity search with the generic name
         run: |
-          python - <<'PY'
-          import os, re, time, requests
-          c = os.environ.get("SEC_CONTACT", "")
+          python - <<'PYX'
+          import re, time, requests
           gen = "rally-research-script/1.0 (personal research)"
-          con = "rally-research-script/1.0 (personal research; contact %s)" % c
-          con2 = "nightly-batch %s" % c
-          steps = [("data", con, "https://data.sec.gov/submissions/CIK0000320193.json"),
-                   ("data", gen, "https://data.sec.gov/submissions/CIK0000320193.json"),
-                   ("data", con2, "https://data.sec.gov/submissions/CIK0000789019.json"),
-                   ("www", con, "https://www.sec.gov/files/company_tickers.json"),
-                   ("data", gen, "https://data.sec.gov/submissions/CIK0001045810.json"),
-                   ("data", con, "https://data.sec.gov/submissions/CIK0001018724.json")]
-          for i, (h, ua, u) in enumerate(steps):
+          for q in ["AAPL", "NCPL", "SLS", "HLP"]:
               try:
-                  r = requests.get(u, headers={"User-Agent": ua, "Accept-Encoding": "gzip, deflate"}, timeout=40)
-                  kind = "gen" if ua == gen else ("con" if ua == con else "con2")
-                  txt = "" if r.status_code == 200 else re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r.text))[:300]
-                  print(i, h, kind, r.status_code, len(r.content), txt)
+                  r = requests.get("https://efts.sec.gov/LATEST/search-index?keysTyped=" + q, headers={"User-Agent": gen, "Accept-Encoding": "gzip, deflate"}, timeout=40)
+                  txt = "" if r.status_code == 200 else re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r.text))[:120]
+                  hits = []
+                  if r.status_code == 200:
+                      for h in r.json().get("hits", {}).get("hits", [])[:3]: hits.append((h.get("_id"), str(h.get("_source", {}).get("tickers", ""))[:30]))
+                  print("efts", q, r.status_code, len(r.content), hits, txt)
               except Exception as e:
-                  print(i, h, "ERR", repr(e)[:100])
-              time.sleep(2)
-          PY
+                  print("efts", q, "ERR", repr(e)[:100])
+              time.sleep(1.5)
+          PYX
