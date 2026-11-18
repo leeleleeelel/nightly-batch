@@ -1,0 +1,33 @@
+name: probe
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install requests
+      - name: data sources reachable from GitHub servers
+        run: |
+          python - <<'PY'
+          import requests, time
+          t = int(time.time())
+          tests = [
+            ("yahoo", "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?period1=1704067200&period2=%d&interval=1d" % t, {"User-Agent": "Mozilla/5.0 (rally-research-script)"}),
+            ("yahoo2", "https://query2.finance.yahoo.com/v8/finance/chart/INTC?period1=1704067200&period2=%d&interval=1d" % t, {"User-Agent": "Mozilla/5.0 (rally-research-script)"}),
+            ("sec", "https://data.sec.gov/submissions/CIK0000320193.json", {"User-Agent": "rally-research-script/1.0 (personal research)", "Accept-Encoding": "gzip, deflate"}),
+            ("sec_www", "https://www.sec.gov/files/company_tickers.json", {"User-Agent": "rally-research-script/1.0 (personal research)", "Accept-Encoding": "gzip, deflate"}),
+            ("finra", "https://cdn.finra.org/equity/regsho/daily/CNMSshvol20261117.txt", {"User-Agent": "rally-research-script/1.0 (personal research)"}),
+            ("nasdaq", "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt", {"User-Agent": "rally-research-script/1.0 (personal research)"}),
+          ]
+          for name, url, h in tests:
+              try:
+                  r = requests.get(url, headers=h, timeout=40); print(name, r.status_code, len(r.content))
+              except Exception as e:
+                  print(name, "ERR", repr(e)[:120])
+          PY
